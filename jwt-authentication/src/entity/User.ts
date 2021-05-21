@@ -1,4 +1,5 @@
-import {Entity, PrimaryGeneratedColumn, Column} from "typeorm";
+import {Entity, PrimaryGeneratedColumn, Column, OneToMany} from "typeorm";
+import { RefreshToken } from "./RefreshToken";
 
 @Entity()
 export class User {
@@ -21,5 +22,7 @@ export class User {
     @Column()
     lastName: string;
 
+    @OneToMany(type=> RefreshToken, refreshTokens=>refreshTokens.user)
+    refreshTokens: RefreshToken;
 
 }

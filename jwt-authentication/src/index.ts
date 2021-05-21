@@ -52,8 +52,11 @@ app.post("/register", async (req: Request, res: Response) => {
     userDTO.username = user.username;
     userDTO.email = user.email;
 
+    //implement token generation and refresh token
+    const tokenandRefreshToken = await JWT.generateTokenAndRefreshToken(user);
     authenticationDTO.user = userDTO;
-    authenticationDTO.token = await JWT.generateToken(user);
+    authenticationDTO.token = tokenandRefreshToken.token;
+    authenticationDTO.refreshToken = tokenandRefreshToken.refreshToken;
 
 
     res.json(authenticationDTO); 
