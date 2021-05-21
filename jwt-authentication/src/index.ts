@@ -9,6 +9,7 @@ import { RegisterDTO } from "./dto/request/register.dto";
 import { PasswordHash } from "./security/passwordHash";
 import { AuthenticationDTO } from "./dto/response/authentication.dto";
 import { UserDTO } from "./dto/response/user.dto";
+import { JWT } from "./security/jwt";
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.post("/register", async (req: Request, res: Response) => {
     userDTO.email = user.email;
 
     authenticationDTO.user = userDTO;
+    authenticationDTO.token = await JWT.generateToken(user);
 
 
     res.json(authenticationDTO); 
