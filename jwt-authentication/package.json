@@ -20,6 +20,6 @@
       "typeorm": "0.2.32"
    },
    "scripts": {
-      "start": "ts-node src/index.ts"
+      "start": "ts-node-dev src/index.ts"
    }
 }
