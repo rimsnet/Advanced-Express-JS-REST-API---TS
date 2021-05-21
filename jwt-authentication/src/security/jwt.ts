@@ -28,21 +28,71 @@ export class JWT {
         const refreshToken = await this.generateRefreshTokenForUserAndToken(user, jwtId);
 
         //link that token the refresh token
-        
-        return {token, refreshToken};
+
+        return { token, refreshToken };
     }
 
-    private static async generateRefreshTokenForUserAndToken(user:User, jwtId:string){
+    private static async generateRefreshTokenForUserAndToken(user: User, jwtId: string) {
         //create a new record of a refresh token
         const refreshToken = new RefreshToken();
         refreshToken.user = user;
         refreshToken.jwtid = jwtId;
         //set the expiry date of the refresh token for example 10 days
         refreshToken.expiryDate = moment().add(10, "d").toDate();
-        
+
         //store this refresh token
         await Database.refreshTokenRepository.save(refreshToken);
 
         return refreshToken.id;
+    }
+
+    public static async isValidToken(token: string) {
+        try {
+            jwt.verify(token, this.JWT_SECRET, {
+                ignoreExpiration: false,
+            });
+
+            return true
+
+        } catch (error) {
+            return false
+        }
+    }
+
+
+    public static getJwtId(token: string) {
+        const decodedToken = jwt.decode(token)
+        return decodedToken["jti"];
+    }
+
+    public static async isRefreshTokenLinkedToToken(refreshToken: RefreshToken, jwId: string) {
+
+        if (!refreshToken) return false;
+        if (refreshToken.jwtid !== jwId) return false;
+
+        return true
+    }
+
+    public static async isRefreshTokenExpired(refreshToken: RefreshToken) {
+        if (moment().isAfter(refreshToken.expiryDate))
+            return true;
+
+        return false;
+    }
+
+    public static async isRefreshTokenUsedOrInvalidated(refreshToken: RefreshToken) {
+        if (refreshToken.used)
+            return true;
+
+        if (refreshToken.invalidated)
+            return true;
+
+        return false;
+    }
+
+
+    public static async getJwtPayloadValueByKey(token: string, key:string){
+        const decodedToken = jwt.decode(token)
+        return decodedToken[key];
     }
 }

@@ -12,6 +12,7 @@ import { UserDTO } from "./dto/response/user.dto";
 import { JWT } from "./security/jwt";
 import { LoginDTO } from "./dto/request/login.dto";
 import { EntityToDTO } from "./util/entityToDTO";
+import { RefreshTokenDTO } from "./dto/request/refreshToken.dto";
 
 const app = express();
 
@@ -104,6 +105,61 @@ app.post("/login", async (req: Request, res: Response) => {
 
 });
 
+app.post("/refresh", async (req: Request, res: Response) => {
+
+  try {
+
+    const body: RefreshTokenDTO = req.body;
+
+    //chech if the twt token is valid & has not expired
+    if (!JWT.isValidToken(body.token)) throw new Error("JWT is not valid")
+
+    const jwtId = JWT.getJwtId(body.token);
+
+    const user = await Database.userRepository.findOne(await JWT.getJwtPayloadValueByKey(body.token, "id"));
+
+    //check if the user exists
+    if (!user) throw new Error("User does not exists");
+
+    //fetch refresh token form db
+    const refreshToken = await Database.refreshTokenRepository.findOne(body.refreshToken);
+
+    //check if the refresh token exists and is linked to that twt token.
+    if (!await JWT.isRefreshTokenLinkedToToken(refreshToken, jwtId))
+      throw new Error("Token does not match with Refresh token")
+
+    //check if the refresh token expried
+    if (await JWT.isRefreshTokenExpired(refreshToken))
+      throw new Error("Refresh token has expird")
+
+    //check if the refresh token was used or invalidated
+    if (await JWT.isRefreshTokenUsedOrInvalidated(refreshToken))
+      throw new Error("Refresh Token has been used or invalidated")
+
+
+    refreshToken.used = true;
+
+    await Database.refreshTokenRepository.save(refreshToken);
+
+    //generate a fresh pair of token  and refresh token
+    const tokenResults = await JWT.generateTokenAndRefreshToken(user);
+
+    //generate authentication response
+    const authenticationDTO: AuthenticationDTO = new AuthenticationDTO();
+    authenticationDTO.user = EntityToDTO.userToDTO(user);
+    authenticationDTO.token = tokenResults.token;
+    authenticationDTO.refreshToken = tokenResults.refreshToken;
+
+    res.json(authenticationDTO);
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message
+    })
+  }
+
+
+});
 
 app.listen(4000, () => { console.log('Listening on PORT', 4000) });
 
