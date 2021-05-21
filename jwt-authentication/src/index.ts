@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { createConnection } from "typeorm";
+import { createConnection, Entity } from "typeorm";
 import { User } from "./entity/User";
 
 import * as express from 'express';
@@ -10,6 +10,8 @@ import { PasswordHash } from "./security/passwordHash";
 import { AuthenticationDTO } from "./dto/response/authentication.dto";
 import { UserDTO } from "./dto/response/user.dto";
 import { JWT } from "./security/jwt";
+import { LoginDTO } from "./dto/request/login.dto";
+import { EntityToDTO } from "./util/entityToDTO";
 
 const app = express();
 
@@ -32,7 +34,7 @@ app.post("/register", async (req: Request, res: Response) => {
       throw new Error('Repeat password does not match')
 
     //validate if the email is already being used
-    if(await Database.userRepository.findOne({email:body.email})){
+    if (await Database.userRepository.findOne({ email: body.email })) {
       throw new Error('E-mail is already being used')
     }
 
@@ -47,10 +49,7 @@ app.post("/register", async (req: Request, res: Response) => {
     await Database.userRepository.save(user);
 
     const authenticationDTO: AuthenticationDTO = new AuthenticationDTO();
-    const userDTO: UserDTO = new UserDTO();
-    userDTO.id = user.id;
-    userDTO.username = user.username;
-    userDTO.email = user.email;
+    const userDTO: UserDTO = EntityToDTO.userToDTO(user);
 
     //implement token generation and refresh token
     const tokenandRefreshToken = await JWT.generateTokenAndRefreshToken(user);
@@ -59,13 +58,50 @@ app.post("/register", async (req: Request, res: Response) => {
     authenticationDTO.refreshToken = tokenandRefreshToken.refreshToken;
 
 
-    res.json(authenticationDTO); 
+    res.json(authenticationDTO);
 
   } catch (error) {
     res.status(500).json({
       messsage: error.message
     });
   }
+});
+
+
+app.post("/login", async (req: Request, res: Response) => {
+
+  try {
+    const body: LoginDTO = req.body;
+
+    //check if the email/user exists
+    const user = await Database.userRepository.findOne({ email: body.email });
+    if (!user)
+      throw new Error("Email does not existes")
+
+
+    //check if the password is valid
+    if (! await PasswordHash.isPasswordValid(body.password, user.password))
+      throw new Error("Password is invalid")
+
+
+
+    //retrieve token
+    const { token, refreshToken } = await JWT.generateTokenAndRefreshToken(user)
+
+    //generate an authenticationDTO/response
+    const authenticationDTO = new AuthenticationDTO();
+    authenticationDTO.user = EntityToDTO.userToDTO(user);
+    authenticationDTO.token = token;
+    authenticationDTO.refreshToken = refreshToken;
+
+    res.json(authenticationDTO);
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message
+    })
+  }
+
 });
 
 
